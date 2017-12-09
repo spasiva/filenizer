@@ -25,6 +25,7 @@ import argparse
 import re
 
 
+
 def add_zero(num):
     if num < 10:
         return "0" + str(num)
@@ -48,6 +49,14 @@ def sim_name(fn, title):
     return fn
 
 
+def replacenizer(fn, my_dict):
+    fn = fn.strip()
+    # fn = fn.capitalize()
+    for b, a in my_dict.items():
+        fn = fn.replace(b, a)
+    return fn
+
+
 def parsenizer():
     # Command line options
     parser = argparse.ArgumentParser(description='This program helps organise your files.')
@@ -59,6 +68,7 @@ def parsenizer():
     parser.add_argument('-i', '--input', help='Location of input.')
     parser.add_argument('--ignore', help='Ignored folders. Use comma to add multiple folders.')
     parser.add_argument('--ignore-file', help='Ignored files. Use comma to add multiple files.')
+    parser.add_argument('--replace-string', help='Replaced strings. x:y,a:b')
     args = parser.parse_args()
     parameters = vars(args)
 
@@ -95,8 +105,15 @@ def modifynizer(parameters):
     # Ignore folders
     exclude = {os.path.abspath(output_dir), os.path.abspath('.idea')}
     if parameters['ignore']:
-        for ign_fol in parameters['ignore']:
+        for ign_fol in re.split(',|;|\n', parameters['ignore']):
             exclude.add(os.path.abspath(ign_fol))
+
+    # parse replaced strings input
+    if parameters['replace_string']:
+        replace_dict = {}
+        for item in re.split(',|;|\n', parameters['replace_string']):
+            replace_dict[item.split(':')[0]] = item.split(':')[1]
+        # print(replace_dict)
 
     # Start walking
     for folder_name, subfolders, filenames in os.walk(input_dir, topdown=True):
@@ -105,7 +122,7 @@ def modifynizer(parameters):
 
         # Creates recursive folders
         print('Folder: "{}"'.format(folder_name))
-        #if parameters['recursive']:
+        # if parameters['recursive']:
         #    os.makedirs(os.path.join(output_dir, folder_name), exist_ok=True)
 
         for filename in filenames:
@@ -113,15 +130,21 @@ def modifynizer(parameters):
             if filename.endswith('.py'):
                 continue
 
-            if filename in parameters['ignore_file']:
-                continue
+            if parameters['ignore_file']:
+                if filename in re.split(',|;|\n', parameters['ignore_file']):
+                    continue
 
             # Source path
             src_path = os.path.join(folder_name, filename)
 
             # Edit file name
+            # Add title
             if parameters['title']:
                 filename = sim_name(filename, parameters['title'])
+
+            # replace
+            if parameters['replace_string']:
+                filename = replacenizer(filename, replace_dict)
 
             # Destination path
             if parameters['recursive']:
